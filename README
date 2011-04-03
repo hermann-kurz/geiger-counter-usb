@@ -1,0 +1,4 @@
+Cheap geiger counter based on the TI launchpad with USB interface and Windows software
+- launchpad: Software for the launchpad
+- schematics-pcb: schematics and pcb layout
+- windows: windows software to display status/rate
