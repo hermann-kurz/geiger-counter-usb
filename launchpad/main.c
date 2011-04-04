@@ -77,6 +77,8 @@ void main(void)
       TransmitNumber(currentRate);
       TransmitByte(10);
       TransmitByte(13);
+//wait 1 second
+      __delay_cycles(1000000);
     }
   }
 }
