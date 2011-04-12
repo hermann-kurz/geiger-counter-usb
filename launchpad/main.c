@@ -1,4 +1,14 @@
 /******************************************************************************
+* Geiger counter software (Launchpad part)
+* https://github.com/hermann-kurz/geiger-counter-usb
+* 
+* a project from
+* Martin Kurz:   martinkurz@kurzschluss.com
+* Steffen Raach: sraach@gmail.com
+* Hermann Kurz:  hkurz@jruby.de
+* 
+* using
+* 
 * MSP-EXP430G2-LaunchPad Software UART Transmission
 *
 * Original Code: From MSP-EXP430G2-LaunchPad User Experience Application
@@ -7,35 +17,42 @@
 * Modified by Nicholas J. Conn - http://msp430launchpad.blogspot.com
 * Date Modified: 07-25-10
 * 
-* Modified and extended by Hermann Kurz 2011-04-01
-* If you press a switch on the Launchpad a counter is incremented
-* The content of the counter is continuously transmitted via pseudo com port
-* with 9600, No parity, 1 Stop bit. No handshake is used.
-* You can see the output by using Hyperterm on the appropriate com port
-* Idea is to use a geiger tube to increment the counter instead of the switch..
+* Heavily extended by Hermann Kurz (hkurz@acm.org) 2011-04-01
 * 
+* Geiger tube output is connected to P1.3,
+* if there is an impulse or you press a switch on the Launchpad 
+* a counter is incremented.
+* The content of the counter and the current rate of the last minute
+* is continuously transmitted via pseudo com port
+* with 9600, No parity, 1 Stop bit to the host. No handshake is used.
+* 
+* GeigerGui is used to display the rate and current counter.
+* 
+* Debugging:
+* You can also see the output by using Hyperterm on the appropriate com port.
 * 
 ******************************************************************************/
+#define UINT_MAX 65535
 #include "msp430g2231.h"
 #define TXD BIT1 // TXD on P1.1
 #define Bitime 104 //9600 Baud, SMCLK=1MHz (1MHz/9600)=104
+
  
 unsigned char BitCnt; // Bit count, used when transmitting byte
 unsigned int uartUpdateTimer = 10; // Loops until byte is sent
 unsigned int TXByte; // Value sent over UART when Transmit() is called
 
-// we use 32 bits to count ticks and for some helper variables
-unsigned long counter = 0;
-unsigned long oldCounter = 0;
-unsigned long currentRate = 0;
-unsigned long counterStatus;
-unsigned long counterTmp;
+// we use 16 bits to count ticks and for some helper variables
+unsigned int counter = UINT_MAX - 20;
+unsigned int oldCounter = UINT_MAX - 20;
+unsigned int currentRate = 0;
+unsigned int counterStatus;
+unsigned int counterTmp;
 unsigned int wdtCount=0;
-unsigned long wdtCount2=0;
 
 // Function Definitions
 void Transmit(void);
-void TransmitNumber(unsigned long);
+void TransmitNumber(unsigned int);
 void TransmitByte(unsigned int TByte);
  
 void main(void)
@@ -44,7 +61,7 @@ void main(void)
   IFG1 &=~WDTIFG;
   IE1 &=~WDTIE;
   WDTCTL = WDTPW + WDTHOLD;
-  WDTCTL = WDT_MDLY_0_5; // We jump to the WDT interrupt every 0.5ms
+  WDTCTL = WDT_MDLY_32; // We jump to the WDT interrupt every 32 ms
   IE1 |= WDTIE;
   
   P1DIR |= BIT0; // Set P1.0 to output and P1.3 to input direction  
@@ -91,12 +108,12 @@ void TransmitByte(unsigned int TByte){
  }
 
 
-//Transmit an unsigned long over com port
-void TransmitNumber(unsigned long number){
+//Transmit an unsigned int over com port
+void TransmitNumber(unsigned int number){
     {
       int leadingZero = 1; // true at start
       unsigned char val;
-      counterTmp = 1000000000;
+      counterTmp = 10000;
       while(counterTmp > 0){
       	val = number / counterTmp;
             if ((val != 0 ) || (leadingZero == 0) || (counterTmp == 1)){
@@ -154,24 +171,21 @@ __interrupt void Timer_A (void)
     counter++;  
 }
 
-// Toggle output for transformator with 50Hz
 // Update Rate every 60 seconds, called via WDT
 #pragma vector=WDT_VECTOR
 __interrupt void WATCHDOG_ISR (void){           // interrupt routine
-// this routine is called every 0.5 ms
- wdtCount++;  // Counter for 50Hz output
- wdtCount2++; // Counter for rate update (60s)
+// this routine is called every 32 ms
+ wdtCount++; // Counter for rate update (60s)
  
-// We toggle every 20th call (10ms), so 50Hz output on P1.6 (Green LED)
- if(wdtCount == 20) {
-    P1OUT ^= BIT6;  // Toggle P1.6;
-    wdtCount = 0;
- }
- 
- //update currentRate every 60s = 0.5ms * 120000
- if(wdtCount2 == 120000) {
-    currentRate = counter - oldCounter;
+ //update currentRate every 60s = 32ms * 1875
+ if(wdtCount == 1875) {
+ 	if (counter > oldCounter){
+      currentRate = counter - oldCounter;
+ 	}
+ 	else{ //handle overflow of counter (unsigned int)
+ 	  currentRate = UINT_MAX - oldCounter + counter +1;
+ 	}
     oldCounter = counter;
-    wdtCount2 = 0;
+    wdtCount = 0;
  }
 }
