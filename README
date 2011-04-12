@@ -1,4 +1,17 @@
-Cheap geiger counter based on the TI launchpad with USB interface and Windows software
+Cheap geiger counter based on the TI launchpad with USB interface and Windows software (processing)
+Contributors:
+
+Martin Kurz (Windows/processing) 
+martinkurz@kurzschluss.com
+
+Steffen Raach (Schematics and PCB)
+steffen@raach.de
+
+Hermann Kurz (MSP430 Software)
+hkurz@acm.org
+
+
+Directories
 - launchpad: Software for the launchpad
 - schematics-pcb: schematics and pcb layout
 - windows: windows software to display status/rate
